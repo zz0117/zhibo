@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播播放</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .player-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background-color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .fallback-message {
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .play-prompt {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            z-index: 10;
+        }
+        .play-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+        .play-prompt p {
+            margin: 0;
+            font-size: 18px;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        /* 修复直播地址在手机上的显示问题 */
+        .info p {
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            white-space: normal;
+            line-height: 1.4;
+        }
+        
+        .info code {
+            display: block;
+            background-color: #e9ecef;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        /* 手机端适配 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .info {
+                padding: 10px;
+            }
+            
+            .info h3 {
+                font-size: 16px;
+                margin-bottom: 10px;
+            }
+            
+            .info p {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            
+            .info code {
+                font-size: 11px;
+                padding: 6px;
+            }
+        }
+        
+        /* 移动端全屏按钮样式 */
+        .mobile-fullscreen-btn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 1000;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mobile-fullscreen-btn:hover {
+            background-color: rgba(0, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
+        
+        .mobile-fullscreen-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        
+        /* 只在移动设备上显示全屏按钮 */
+        @media (max-width: 768px) {
+            .mobile-fullscreen-btn {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="anchor-title">直播播放</h1>
+        </div>
+        
+        <div class="player-container">
+            <!-- 视频播放器 -->
+            <video id="live-player" controls playsinline webkit-playsinline></video>
+            
+            <div id="play-prompt" class="play-prompt">
+                <div class="play-icon">▶</div>
+                <p>请点击播放按钮开始观看直播</p>
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>直播信息</h3>
+            <p><strong>主播名称：</strong><span id="display-title">--</span></p>
+            <p><strong>直播地址：</strong><code id="display-address">--</code></p>
+        </div>
+    </div>
+    
+    <!-- 移动端全屏按钮 -->
+    <button class="mobile-fullscreen-btn" id="mobileFullscreenBtn" onclick="enterMobileFullscreen()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+    </button>
+
+    <!-- flv.js 本地文件 -->
+    <script src="./flv.min.js"></script>
+
+    <script>
+        function getUrlParams() {
+            const params = {};
+            const queryString = window.location.search.substring(1);
+            const pairs = queryString.split('&');
+            for (const pair of pairs) {
+                const [key, value] = pair.split('=');
+                if (key && value) {
+                    params[decodeURIComponent(key)] = decodeURIComponent(value);
+                }
+            }
+            return params;
+        }
+
+        function initPlayer() {
+            const params = getUrlParams();
+            const anchorTitle = params.title || '未知主播';
+            const streamAddress = params.address || '';
+
+            // 更新页面标题和信息
+            document.title = `${anchorTitle}-直播播放`;
+            document.getElementById('anchor-title').textContent = `正在观看: ${anchorTitle}`;
+            document.getElementById('display-title').textContent = anchorTitle;
+            document.getElementById('display-address').textContent = streamAddress;
+
+            const videoPlayer = document.getElementById('live-player');
+            const playPrompt = document.getElementById('play-prompt');
+
+            if (!streamAddress) {
+                videoPlayer.innerHTML = '<div class="fallback-message"><p>未找到有效的直播地址</p></div>';
+                return;
+            }
+
+            if (flvjs.isSupported()) {
+                const flvPlayer = flvjs.createPlayer({
+                    type: 'flv',
+                    url: streamAddress,
+                });
+                flvPlayer.attachMediaElement(videoPlayer);
+                flvPlayer.load();
+
+                // 点击播放提示开始播放
+                playPrompt.addEventListener('click', () => {
+                    flvPlayer.play().then(() => {
+                        playPrompt.style.display = 'none';
+                        console.log('视频播放成功');
+                    }).catch(err => {
+                        console.error('播放失败', err);
+                        alert('播放失败，请检查网络或直播源');
+                    });
+                });
+
+                videoPlayer.addEventListener('play', () => {
+                    playPrompt.style.display = 'none';
+                });
+
+                videoPlayer.addEventListener('pause', () => {
+                    playPrompt.style.display = 'flex';
+                });
+
+                videoPlayer.addEventListener('error', (e) => {
+                    console.error('播放器错误', e);
+                    alert('视频播放出现错误，请检查地址或格式');
+                    playPrompt.style.display = 'flex';
+                });
+
+            } else {
+                alert('浏览器不支持 FLV 播放，请使用 Chrome 或 Firefox');
+            }
+        }
+
+        // 移动端全屏功能
+        function enterMobileFullscreen() {
+            const videoPlayer = document.getElementById('live-player');
+            const fullscreenBtn = document.getElementById('mobileFullscreenBtn');
+            
+            if (videoPlayer.requestFullscreen) {
+                videoPlayer.requestFullscreen().catch(err => {
+                    console.log('全屏请求失败，尝试其他方法:', err);
+                    // 如果标准全屏失败，尝试模拟全屏效果
+                    simulateMobileFullscreen();
+                });
+            } else if (videoPlayer.webkitRequestFullscreen) {
+                videoPlayer.webkitRequestFullscreen().catch(err => {
+                    console.log('webkit全屏请求失败，尝试其他方法:', err);
+                    simulateMobileFullscreen();
+                });
+            } else if (videoPlayer.webkitEnterFullscreen) {
+                // iOS Safari专用方法
+                videoPlayer.webkitEnterFullscreen();
+            } else {
+                // 如果都不支持，使用模拟全屏
+                simulateMobileFullscreen();
+            }
+        }
+        
+        // 模拟移动端全屏效果
+        function simulateMobileFullscreen() {
+            const playerContainer = document.querySelector('.player-container');
+            const fullscreenBtn = document.getElementById('mobileFullscreenBtn');
+            const body = document.body;
+            const container = document.querySelector('.container');
+            
+            // 创建全屏遮罩层
+            const fullscreenOverlay = document.createElement('div');
+            fullscreenOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: black;
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+            
+            // 克隆视频元素到全屏层
+            const clonedVideo = document.getElementById('live-player').cloneNode(true);
+            clonedVideo.style.cssText = `
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+            `;
+            
+            // 创建退出全屏按钮
+            const exitBtn = document.createElement('button');
+            exitBtn.innerHTML = '✕';
+            exitBtn.style.cssText = `
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                width: 40px;
+                height: 40px;
+                background: rgba(0, 0, 0, 0.8);
+                border: 2px solid white;
+                border-radius: 50%;
+                color: white;
+                font-size: 20px;
+                cursor: pointer;
+                z-index: 10000;
+            `;
+            
+            exitBtn.onclick = function() {
+                document.body.removeChild(fullscreenOverlay);
+                document.body.style.overflow = '';
+            };
+            
+            fullscreenOverlay.appendChild(clonedVideo);
+            fullscreenOverlay.appendChild(exitBtn);
+            document.body.appendChild(fullscreenOverlay);
+            document.body.style.overflow = 'hidden';
+            
+            // 尝试播放克隆的视频
+            if (clonedVideo.play) {
+                clonedVideo.play().catch(err => {
+                    console.log('克隆视频播放失败:', err);
+                });
+            }
+        }
+        
+        // 检测是否为移动设备
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            initPlayer();
+            
+            // 只在移动设备上显示全屏按钮
+            if (isMobileDevice()) {
+                const fullscreenBtn = document.getElementById('mobileFullscreenBtn');
+                if (fullscreenBtn) {
+                    fullscreenBtn.style.display = 'flex';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

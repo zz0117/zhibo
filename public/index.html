@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播平台列表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* 回到顶部按钮样式 */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background-color: #4a90e2;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(20px);
+            z-index: 99;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+            visibility: visible;
+        }
+        
+        .back-to-top:hover {
+            background-color: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* platform-header的响应式调整 */
+        @media (max-width: 768px) {
+            .platform-header {
+                padding: 10px 15px;
+            }
+            
+            .platform-info-header h2 {
+                font-size: 16px;
+                max-width: 200px;
+            }
+            
+            .platform-info-header p {
+                font-size: 12px;
+                max-width: 200px;
+            }
+            
+            .back-to-top {
+                bottom: 20px;
+                right: 20px;
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+        }
+        
+        /* 动态调整anchor-list-view的padding以适应platform-header高度 */
+        #anchor-list-view {
+            padding-top: 80px; /* 默认padding-top，会被JavaScript动态调整 */
+            transition: padding-top 0.3s ease;
+        }
+        
+        /* 在小屏幕下调整padding-top */
+        @media (max-width: 768px) {
+            #anchor-list-view {
+                padding-top: 60px; /* 小屏幕下header高度较小 */
+            }
+        }
+        
+        /* 在极小屏幕下进一步调整 */
+        @media (max-width: 480px) {
+            #anchor-list-view {
+                padding-top: 50px; /* 极小屏幕下header高度更小 */
+            }
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin: 0;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        /* 视图容器样式 - 修复高度问题，确保正常包裹内容 */
+        .container {
+            max-width: 2200px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+            padding: 0;
+            position: relative;
+        }
+        
+        .view {
+            padding: 20px;
+            box-sizing: border-box;
+            transition: opacity 0.3s ease;
+            opacity: 1;
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* 修复平台列表标题样式 */
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .view.hidden {
+            display: none;
+        }
+        
+        /* 平台详情页特定样式 */
+        .platform-info-header {
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 8px;
+            border-left: 4px solid #4a90e2;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .platform-info-header h2 {
+            font-size: 20px;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .platform-info-header p {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .back-button {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #4a90e2;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+            border: none;
+        }
+        
+        .back-button:hover {
+            background-color: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+        }
+        
+        .back-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(74, 144, 226, 0.2);
+        }
+        
+        .back-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .back-button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        /* 抖音观看模式按钮样式 */
+        .douyin-button {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #ff0050;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(255, 0, 80, 0.2);
+            border: none;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .douyin-button:hover {
+            background-color: #e60045;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 0, 80, 0.3);
+        }
+        
+        .douyin-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(255, 0, 80, 0.2);
+        }
+        
+        .douyin-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .douyin-button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        /* 预览全部模式按钮样式 */
+        .preview-all-button {
+            background-color: #00a8ff;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: inline-block;
+            transition: all 0.3s ease;
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .preview-all-button:hover {
+            background-color: #0096e6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 168, 255, 0.3);
+        }
+        
+        .preview-all-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 168, 255, 0.2);
+        }
+        
+        .preview-all-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .preview-all-button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(90deg, #4a90e2, #50e3c2);
+            border-radius: 3px;
+        }
+        
+        /* 基础网格布局 - 使用auto-fit和minmax实现更灵活的响应式设计 */
+        /* minmax(160px, 1fr)确保在小屏幕上也能显示至少3列，同时允许内容自适应 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 10px 0;
+            justify-items: stretch;
+        }
+        
+        /* 响应式布局增强 - 针对不同屏幕尺寸的优化 */
+        
+        /* 小屏幕下限 - 确保在小屏幕上也至少显示3列 */
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+            }
+        }
+        
+        /* 平板 - 小平板优化 */
+        @media (min-width: 769px) and (max-width: 1023px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 14px;
+            }
+        }
+        
+        /* 小型桌面 - 如13寸笔记本 */
+        @media (min-width: 1024px) and (max-width: 1279px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 15px;
+            }
+        }
+        
+        /* 中型桌面 - 如15寸笔记本和入门级显示器 */
+        @media (min-width: 1280px) and (max-width: 1599px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 18px;
+            }
+        }
+        
+        /* 1920x1080分辨率 - 确保显示6个卡片 */
+        @media (min-width: 1600px) and (max-width: 1999px) {
+            .grid-container {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 20px;
+            }
+        }
+        
+        /* 2K显示器 (2000-2200px) - 显示7-8列 */
+        @media (min-width: 2000px) and (max-width: 2299px) {
+            .grid-container {
+                grid-template-columns: repeat(7, 1fr);
+                gap: 22px;
+            }
+        }
+        
+        /* 高分辨率2K显示器 (2300-2800px) - 更多列 */
+        @media (min-width: 2300px) and (max-width: 2799px) {
+            .grid-container {
+                grid-template-columns: repeat(8, 1fr);
+                gap: 22px;
+            }
+        }
+        
+        /* 4K及以上超大屏幕 - 最大化显示卡片数量 */
+        @media (min-width: 2800px) and (max-width: 3499px) {
+            .grid-container {
+                grid-template-columns: repeat(10, 1fr);
+                gap: 24px;
+            }
+        }
+        
+        /* 超高分辨率显示器 (3500px以上) - 最大化利用屏幕空间 */
+        @media (min-width: 3500px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 28px;
+            }
+        }
+        
+        /* 卡片点击效果将用于未来页面跳转 */
+        
+        .platform-card {
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        /* 图片容器 */
+        .image-container {
+            position: relative;
+            width: 100%;
+            padding-top: 100%; /* 1:1 方形比例 */
+            background-color: #f5f5f5;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .platform-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+            border-color: #e0e0e0;
+        }
+        
+        /* 主播卡片样式 */
+        .anchor-card {
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .anchor-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+            border-color: #e0e0e0;
+        }
+        
+        .image-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* 显示完整图片 */
+            transition: transform 0.2s ease;
+        }
+        
+        .platform-card:hover .platform-image {
+            transform: scale(1.05);
+        }
+        
+        .platform-info {
+            padding: 10px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 60px;
+        }
+        
+        /* 平台信息头部样式 */
+        .platform-info-header h2 {
+            margin: 0;
+            font-size: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 300px;
+        }
+        
+        .platform-info-header p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 300px;
+        }
+        
+        .platform-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #2c3e50;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .platform-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: linear-gradient(135deg, #ff6b6b, #ff5252);
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            min-width: 24px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.3);
+            z-index: 10;
+        }
+        
+        .platform-address {
+            font-family: 'SF Mono', Monaco, Inconsolata, monospace;
+            color: #7f8c8d;
+            font-size: 11px;
+            word-break: break-all;
+            line-height: 1.2;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            margin-left: 10px;
+            vertical-align: middle;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4a90e2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            text-align: center;
+            padding: 60px 20px;
+            color: #e74c3c;
+            font-size: 16px;
+        }
+        
+        .error::before {
+            content: '⚠️';
+            display: block;
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        /* 响应式设计优化 */
+        @media (max-width: 1200px) {
+            .container {
+                margin: 0 10px;
+                padding: 15px;
+            }
+            
+            .grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 12px;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 10px;
+            }
+            
+            .platform-image {
+                height: 110px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
+            .container {
+                padding: 15px 10px;
+                border-radius: 8px;
+            }
+            
+            h1 {
+                font-size: 22px;
+                margin-bottom: 20px;
+            }
+            
+            .grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 8px;
+            }
+            
+            .platform-image {
+                height: 100px;
+            }
+            
+            .platform-info {
+                padding: 8px;
+                min-height: 50px;
+            }
+            
+            .platform-title {
+                font-size: 13px;
+            }
+            
+            .platform-address {
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 6px;
+            }
+            
+            .platform-image {
+                height: 80px;
+            }
+            
+            .platform-badge {
+                padding: 2px 6px;
+                font-size: 10px;
+                min-width: 20px;
+            }
+        }
+        
+        /* 滚动条样式优化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+        <div class="container">
+            <!-- 平台列表视图 -->
+            <div id="platform-list-view" class="view">
+                <h1>直播平台列表</h1>
+                <div id="loading" class="loading">正在加载平台数据...</div>
+                <div id="error" class="error" style="display: none;">加载失败，请稍后重试</div>
+                <div id="platform-grid" class="grid-container" style="display: none;"></div>
+            </div>
+            
+            <!-- 主播详情视图 -->
+            <div id="anchor-list-view" class="view hidden">
+                <!-- 固定顶部导航栏 -->
+                <div class="platform-header" style="position: fixed; top: 0; left: 0; right: 0; background-color: white; padding: 15px 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); z-index: 999; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div class="back-button" onclick="switchToPlatformList()">← 返回</div>
+                        <div class="douyin-button" onclick="openDouyinMode()">抖音观看模式</div>
+                        <div class="preview-all-button" onclick="openPreviewAllMode()">预览全部模式</div>
+                    </div>
+                    <div class="platform-info-header">
+                        <h2 id="platform-title" style="margin: 0; font-size: 18px;">加载中...</h2>
+                        <p id="platform-address" style="margin: 5px 0 0 0;">正在获取平台信息...</p>
+                    </div>
+                </div>
+                <div id="anchor-loading" class="loading">正在加载主播数据...</div>
+                <div id="anchor-error" class="error" style="display: none;">加载失败，请稍后重试</div>
+                <div id="anchor-grid" class="grid-container" style="display: none;"></div>
+            </div>
+        </div>
+
+    <script>
+        // 回到顶部按钮功能将在DOM加载完成后初始化
+        
+        // 使用代理服务解决跨域问题
+        // 对于本地开发，我们将使用fetch API并尝试各种方法
+        // 添加模拟数据作为后备方案，确保页面能正常显示
+        
+        // 使用后端代理路径解决跨域问题
+        // 不需要完整URL，只使用相对路径，后端会自动添加基础URL前缀
+        const platformGrid = document.getElementById('platform-grid');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        
+        // 模拟数据（从接口获取的实际数据）
+        const mockData = {
+            "pingtai": [
+                { "address":"jsonweishizhibo.txt","xinimg":"http://cdn.gcufbd.top/img/weishi.jpg","Number":"36","title":"卫视直播"},
+                { "address":"jsonlongzhu.txt","xinimg":"http://cdn.gcufbd.top/img/baobao.png","Number":"0","title":"龙珠"},
+                { "address":"jsonyingke.txt","xinimg":"http://cdn.gcufbd.top/img/yingke.jpg","Number":"0","title":"映客"},
+                { "address":"jsonkawayi.txt","xinimg":"http://cdn.gcufbd.top/img/kawayi.jpg","Number":"91","title":"卡哇伊"},
+                { "address":"jsonmihu.txt","xinimg":"http://cdn.gcufbd.top/img/mihu.jpg","Number":"75","title":"咪狐"},
+                { "address":"jsonhuahudie.txt","xinimg":"http://cdn.gcufbd.top/img/huahudie.jpg","Number":"88","title":"花蝴蝶"},
+                { "address":"jsonmitao.txt","xinimg":"http://cdn.gcufbd.top/img/mitao.jpg","Number":"84","title":"蜜桃"},
+                { "address":"jsonfanjiashequ.txt","xinimg":"http://cdn.gcufbd.top/img/fanqie.png","Number":"82","title":"番茄社区"},
+                { "address":"jsonLOVE.txt","xinimg":"http://cdn.gcufbd.top/img/LOVE.jpg","Number":"97","title":"LOVE"},
+                { "address":"jsonxiaodaji.txt","xinimg":"http://cdn.gcufbd.top/img/xiaodaji.jpg","Number":"87","title":"小妲己"},
+                { "address":"json77zhibo.txt","xinimg":"http://cdn.gcufbd.top/img/77.jpg","Number":"89","title":"77直播"},
+                { "address":"jsonyiyi.txt","xinimg":"http://cdn.gcufbd.top/img/yiyi.jpg","Number":"101","title":"依依"},
+                { "address":"jsonrichu.txt","xinimg":"http://cdn.gcufbd.top/img/richu.jpg","Number":"103","title":"日出"},
+                { "address":"jsoncaihong.txt","xinimg":"http://cdn.gcufbd.top/img/caihong.jpg","Number":"38","title":"彩虹"},
+                { "address":"jsonjiujiu.txt","xinimg":"http://cdn.gcufbd.top/img/jiujiu.jpg","Number":"79","title":"久久"},
+                { "address":"jsonyami.txt","xinimg":"http://cdn.gcufbd.top/img/yami.jpg","Number":"34","title":"亚美"}
+            ]
+        };
+        
+        // 获取URL参数，用于调试
+        function getUrlParams() {
+            const params = {};
+            const queryString = window.location.search.substring(1);
+            const pairs = queryString.split('&');
+            for (let i = 0; i < pairs.length; i++) {
+                const pair = pairs[i].split('=');
+                params[pair[0]] = decodeURIComponent(pair[1] || '');
+            }
+            return params;
+        }
+        
+        async function fetchPlatformData() {
+            const params = getUrlParams();
+            
+            // 如果URL参数中有useMock=true，直接使用模拟数据
+            if (params.useMock === 'true') {
+                console.log('使用模拟数据');
+                renderPlatforms(mockData.pingtai);
+                return;
+            }
+            
+            try {
+                // 只使用相对路径，后端会自动添加基础URL前缀
+                const relativePath = 'mf/json.txt';
+                const proxyUrl = `/api_proxy/${relativePath}`;
+                console.log('请求代理URL:', proxyUrl);
+                
+                // 通过后端代理获取数据
+                const response = await fetch(proxyUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`网络响应不正常: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                renderPlatforms(data.pingtai);
+            } catch (err) {
+                console.error('通过代理获取数据失败:', err);
+                console.log('使用模拟数据作为后备');
+                renderPlatforms(mockData.pingtai);
+            }
+        }
+        
+        // 渲染平台数据
+        function renderPlatforms(platforms) {
+            platformGrid.innerHTML = '';
+            
+            // 排除前3个平台，从第4个开始渲染
+            const platformsToRender = platforms.slice(3);
+            
+            platformsToRender.forEach(platform => {
+                const card = document.createElement('div');
+                card.className = 'platform-card';
+                
+                // 添加图片错误处理
+                const imgHtml = `<img src="${platform.xinimg}" alt="${platform.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23f0f0f0\'/><text x=\'50%\' y=\'50%\' text-anchor=\'middle\' dominant-baseline=\'middle\' font-family=\'Arial\' font-size=\'14\' fill=\'%23999\'>${encodeURIComponent(platform.title)}</text></svg>'">`;
+                
+                card.innerHTML = `
+                    <div class="image-container">
+                        ${imgHtml}
+                    </div>
+                    <div class="platform-badge">${platform.Number}</div>
+                    <div class="platform-info">
+                        <h3 class="platform-title">${platform.title}</h3>
+                        <div class="platform-address">${platform.address}</div>
+                    </div>
+                `;
+                
+                // 添加卡片点击效果，切换到主播列表视图
+                card.addEventListener('click', () => {
+                    // 保存当前滚动位置
+                    window.lastPlatformScrollPosition = window.scrollY;
+                    // 切换到主播列表视图
+                    switchToAnchorList(platform.address, platform.title);
+                });
+                
+                platformGrid.appendChild(card);
+            });
+            
+            // 显示网格，隐藏加载和错误信息
+            platformGrid.style.display = 'grid';
+            loading.style.display = 'none';
+            error.style.display = 'none';
+        }
+        
+        // 全局变量存储当前平台信息
+        window.currentPlatform = null;
+        window.lastPlatformScrollPosition = 0;
+        
+        // 切换到平台列表视图
+        function switchToPlatformList() {
+            // 显示平台列表视图，隐藏主播列表视图
+            document.getElementById('anchor-list-view').classList.add('hidden');
+            document.getElementById('platform-list-view').classList.remove('hidden');
+            
+            // 恢复平台列表的滚动位置
+            setTimeout(() => {
+                window.scrollTo(0, window.lastPlatformScrollPosition || 0);
+            }, 50); // 小幅延迟确保视图切换完成
+        }
+        
+        // 切换到主播列表视图
+        function switchToAnchorList(address, title) {
+            // 设置当前平台信息
+            window.currentPlatform = { address, title };
+            
+            // 更新页面标题和平台信息
+            document.title = title + ' - 主播列表';
+            document.getElementById('platform-title').textContent = title;
+            document.getElementById('platform-address').textContent = address;
+            
+            // 滚动到顶部
+            window.scrollTo(0, 0);
+            
+            // 隐藏平台列表视图，显示主播列表视图
+            document.getElementById('platform-list-view').classList.add('hidden');
+            document.getElementById('anchor-list-view').classList.remove('hidden');
+            
+            // 切换视图后重新调整padding
+            setTimeout(adjustAnchorListPadding, 100); // 延迟100ms确保DOM更新完成
+            
+            // 获取主播数据
+            fetchAnchorData(address);
+        }
+        
+        // 打开抖音观看模式
+        function openDouyinMode() {
+            // 将当前平台地址编码后作为URL参数传递给douyin.html
+            if (window.currentPlatform) {
+                const encodedAddress = encodeURIComponent(window.currentPlatform.address);
+                const encodedTitle = encodeURIComponent(window.currentPlatform.title);
+                // 获取当前页面的完整URL，构建完整的跳转路径
+                const currentUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+                const fullUrl = `${currentUrl}douyin.html?address=${encodedAddress}&title=${encodedTitle}`;
+                console.log('打开抖音模式:', fullUrl);
+                window.open(fullUrl, '_blank');
+            } else {
+                alert('请先选择一个平台');
+            }
+        }
+        
+        // 打开预览全部模式
+        function openPreviewAllMode() {
+            if (window.currentPlatform) {
+                // 确保address以mf/开头，如果没有则添加
+                const normalizedAddress = window.currentPlatform.address.startsWith('mf/') ? 
+                    window.currentPlatform.address : `mf/${window.currentPlatform.address}`;
+                const encodedAddress = encodeURIComponent(normalizedAddress);
+                const encodedTitle = encodeURIComponent(window.currentPlatform.title);
+                // 获取当前页面的完整URL，构建完整的跳转路径
+                const currentUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+                const fullUrl = `${currentUrl}preview_all.html?address=${encodedAddress}&title=${encodedTitle}`;
+                console.log('打开预览全部模式:', fullUrl);
+                window.open(fullUrl, '_blank');
+            } else {
+                alert('请先选择一个平台');
+            }
+        }
+        
+        // 获取主播数据
+        function fetchAnchorData(address) {
+            // 只使用相对路径，后端会自动添加基础URL前缀
+            // 确保address以mf/开头，如果没有则添加
+            const normalizedAddress = address.startsWith('mf/') ? address : `mf/${address}`;
+            const proxyUrl = `/api_proxy/${normalizedAddress}`;
+            console.log('请求主播代理URL:', proxyUrl);
+            
+            const anchorGrid = document.getElementById('anchor-grid');
+            const loading = document.getElementById('anchor-loading');
+            const error = document.getElementById('anchor-error');
+            
+            // 显示加载状态
+            anchorGrid.style.display = 'none';
+            error.style.display = 'none';
+            loading.style.display = 'block';
+            
+            // 模拟数据，作为后备方案
+            const mockAnchorData = {
+                "zhubo": [
+                    { "address": "http://example.com/live1.flv", "img": "http://cdn.gcufbd.top/img/weishi.jpg", "title": "主播示例1" },
+                    { "address": "http://example.com/live2.flv", "img": "http://cdn.gcufbd.top/img/baobao.png", "title": "主播示例2" },
+                    { "address": "http://example.com/live3.flv", "img": "http://cdn.gcufbd.top/img/yingke.jpg", "title": "主播示例3" },
+                    { "address": "http://example.com/live4.flv", "img": "http://cdn.gcufbd.top/img/kawayi.jpg", "title": "主播示例4" }
+                ]
+            };
+            
+            // 通过后端代理获取数据，简化请求配置
+            fetch(proxyUrl)
+            .then(response => {
+                if (!response.ok) throw new Error('网络响应不正常');
+                return response.json();
+            })
+            .then(data => {
+                renderAnchors(data.zhubo);
+            })
+            .catch(err => {
+                console.error('通过代理获取主播数据失败:', err);
+                // 使用模拟数据
+                renderAnchors(mockAnchorData.zhubo);
+            });
+        }
+        
+        // 渲染主播数据
+        function renderAnchors(anchors) {
+            const anchorGrid = document.getElementById('anchor-grid');
+            const loading = document.getElementById('anchor-loading');
+            const error = document.getElementById('anchor-error');
+            
+            anchorGrid.innerHTML = '';
+            
+            if (!anchors || anchors.length === 0) {
+                error.textContent = '暂无主播数据';
+                error.style.display = 'block';
+                loading.style.display = 'none';
+                return;
+            }
+            
+            anchors.forEach(anchor => {
+                const card = document.createElement('div');
+                card.className = 'anchor-card';
+                
+                // 清理图片URL中的多余空格
+                const cleanImgUrl = anchor.img ? anchor.img.trim() : '';
+                const cleanAddress = anchor.address ? anchor.address.trim() : '';
+                
+                // 添加图片错误处理
+                const imgHtml = `<img src="${cleanImgUrl}" alt="${anchor.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23f0f0f0\'/><text x=\'50%\' y=\'50%\' text-anchor=\'middle\' dominant-baseline=\'middle\' font-family=\'Arial\' font-size=\'14\' fill=\'%23999\'>${encodeURIComponent(anchor.title)}</text></svg>'">`;
+                
+                card.innerHTML = `
+                    <div class="image-container">
+                        ${imgHtml}
+                    </div>
+                    <div class="platform-info">
+                        <h3 class="platform-title">${anchor.title}</h3>
+                    </div>
+                `;
+                
+                // 添加卡片点击效果
+                card.addEventListener('click', () => {
+                    if (cleanAddress) {
+                        console.log(`点击了主播: ${anchor.title}，地址: ${cleanAddress}`);
+                        // 获取当前页面的完整URL，构建完整的跳转路径
+                        const currentUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+                        const playerUrl = `${currentUrl}video.html?title=${encodeURIComponent(anchor.title)}&address=${encodeURIComponent(cleanAddress)}`;
+                        console.log('打开视频播放器:', playerUrl);
+                        window.open(playerUrl, '_blank');
+                    }
+                });
+                
+                anchorGrid.appendChild(card);
+            });
+            
+            // 显示网格，隐藏加载和错误信息
+            anchorGrid.style.display = 'grid';
+            loading.style.display = 'none';
+            error.style.display = 'none';
+        }
+        
+        // 动态调整anchor-list-view的padding以适应platform-header高度
+        function adjustAnchorListPadding() {
+            const anchorListView = document.getElementById('anchor-list-view');
+            const platformHeader = document.querySelector('.platform-header');
+            
+            if (anchorListView && platformHeader) {
+                // 获取header的实际高度
+                const headerHeight = platformHeader.offsetHeight;
+                
+                // 设置固定的较小间距，确保不管窗口多大都保持一致
+                const fixedSpacing = 15; // 固定15px间距
+                
+                // 设置padding-top为header高度加上固定间距
+                const paddingTop = headerHeight + fixedSpacing;
+                
+                // 应用新的padding
+                anchorListView.style.paddingTop = `${paddingTop}px`;
+                anchorListView.style.paddingLeft = '20px';
+                anchorListView.style.paddingRight = '20px';
+                anchorListView.style.paddingBottom = '20px';
+                
+                console.log(`动态调整anchor-list-view padding-top为: ${paddingTop}px (header高度: ${headerHeight}px + 固定间距: ${fixedSpacing}px)`);
+            }
+        }
+        
+        // 页面加载时获取数据
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchPlatformData();
+            
+            // 初始化动态padding调整
+            adjustAnchorListPadding();
+            
+            // 监听窗口大小变化，重新调整padding
+            window.addEventListener('resize', adjustAnchorListPadding);
+            
+            // 初始化回到顶部按钮功能
+            const backToTopBtn = document.getElementById('backToTop');
+            if (backToTopBtn) {
+                // 监听页面滚动，控制按钮显示/隐藏
+                window.addEventListener('scroll', function() {
+                    // 当页面滚动超过300px时显示按钮
+                    if (window.pageYOffset > 300) {
+                        backToTopBtn.classList.add('visible');
+                    } else {
+                        backToTopBtn.classList.remove('visible');
+                    }
+                });
+                
+                // 点击按钮平滑滚动到顶部
+                backToTopBtn.addEventListener('click', function() {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                });
+            }
+        });
+    </script>
+<!-- 回到顶部按钮 -->
+    <div class="back-to-top" id="backToTop">↑</div>
+    
+    </body>
+</html>
