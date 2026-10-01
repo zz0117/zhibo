@@ -1,3 +1,5 @@
+
+
 # 直播聚合平台 - 使用文档
 
 ## 📋 项目简介
@@ -47,7 +49,7 @@ node --version
    - 然后自动启动服务器
 
 2. **等待服务器启动**
-   - 看到 "Server running at http://localhost:80" 表示启动成功
+   - 看到 "✅ Server running at http://localhost:80" 表示启动成功
 
 3. **打开浏览器访问**
    - 在浏览器地址栏输入：`http://localhost`
@@ -240,4 +242,3 @@ ISC
 ---
 
 **祝使用愉快！** 🎉
-
